@@ -2,9 +2,6 @@
     "name": "Radicale",
     "id": "radicale",
     "packaging_format": 1,
-    "requirements": {
-        "yunohost": ">= 2.4"
-    },
     "description": {
         "en": "CalDAV (calendar) and CardDAV (contact) synchronization server",
         "fr": "Serveur de synchronisation CalDAV et CardDAV"

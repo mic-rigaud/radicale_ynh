@@ -1,24 +1,62 @@
 #!/bin/bash
 
+ynh_version=$(sudo yunohost -v | grep "moulinette:" | cut -d' ' -f2 | cut -d'.' -f1,2)
 # Retrieve arguments
-domain=$1
-path=$2
-admin=$3
-infcloud=$4
-language=$5
-app=radicale
+if [ $ynh_version = "2.4" ]
+then
+	domain=$YNH_APP_ARG_DOMAIN
+	path=$YNH_APP_ARG_PATH
+	admin=$YNH_APP_ARG_ADMIN
+	infcloud=$YNH_APP_ARG_INFCLOUD
+	language=$YNH_APP_ARG_LANGUAGE
+
+	app=$YNH_APP_INSTANCE_NAME
+
+	# Source app helpers
+	. /usr/share/yunohost/helpers
+else
+	domain=$1
+	path=$2
+	admin=$3
+	infcloud=$4
+	language=$5
+	app=radicale
+fi
+
+# Delete files and db if exit with an error
+EXIT_PROPERLY () {
+	trap '' ERR
+	echo -e "\e[91m \e[1m"	# Shell in light red bold
+	echo -e "!!\n  $app install's script has encountered an error. Installation was cancelled.\n!!"
+
+	if [ $ynh_version = "2.2" ]; then
+		/bin/bash ./remove	# Appel le script remove. En 2.2, ce comportement n'est pas automatique.
+	fi
+	exit 1
+}
+TRAP_ON () {	# Activate signal capture
+	trap EXIT_PROPERLY ERR	# Capturing exit signals on error
+}
+TRAP_OFF () {	# Ignoring signal capture until TRAP_ON
+# Pour une raison que j'ignore, la fonction TRAP_ON fonctionne très bien.
+# Mais pas la fonction TRAP_OFF...
+# Utiliser directement `trap '' ERR` dans le code pour l'utiliser, à la place de la fonction.
+	trap '' ERR	# Ignoring exit signals
+}
+TRAP_ON
+
 
 # Vérifie la validité de l'user admin
 sudo yunohost user list --json | grep -q "\"username\": \"$admin\""
 if [[ ! $? -eq 0 ]]; then
     echo "Wrong admin"
-    exit 1
+    touch /force_stop
 fi
 
 # Vérifie la disponibilité du path et du domaine.
 sudo yunohost app checkurl $domain$path -a $app
 if [[ ! $? -eq 0 ]]; then
-    exit 1
+    touch /force_stop
 fi
 
 # Vérifie que le dossier de destination n'est pas déjà utilisé.
@@ -26,7 +64,7 @@ final_path=/var/www/$app
 if [ -e "$final_path" ]
 then
     echo "This path already contains a folder"
-    exit 1
+    touch /force_stop
 fi
 
 # Vérifie la présence du / en début de path
@@ -140,7 +178,7 @@ sudo chown radicale: -R /opt/yunohost/$app
 
 # Set permissions to radicale directory
 sudo chown -R radicale: $final_path
-sudo mkdir /var/log/$app
+sudo mkdir -p /var/log/$app
 sudo touch /var/log/$app/$app.log
 sudo chown radicale -R /var/log/$app
 # Droit par défaut des dossiers de collections utilisateurs, tels qu'ils sont créés par radicale.

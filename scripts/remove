@@ -1,50 +1,78 @@
 #!/bin/bash
 
-app=radicale
-
 # Récupère les infos de l'application.
+ynh_version=$(sudo yunohost -v | grep "moulinette:" | cut -d' ' -f2 | cut -d'.' -f1,2)
+if [ $ynh_version = "2.4" ]; then
+	app=$YNH_APP_INSTANCE_NAME
+
+	# Source app helpers
+	. /usr/share/yunohost/helpers
+else
+	app=radicale
+fi
 domain=$(sudo yunohost app setting $app domain)
-infcloud=$(sudo yunohost app setting $app infcloud)
 
 # Suppression des dossiers de l'application
-sudo rm -Rf /opt/yunohost/$app
-sudo rm -Rf /var/www/$app/
-sudo rm -Rf /etc/$app/
+if [ -e "/var/www/$app/" ]; then	# Delete final_path
+	echo "Delete app dir"
+	sudo rm -r "/var/www/$app/"
+fi
+if [ -e "/opt/yunohost/$app" ]; then
+	echo "Delete virtualenv"
+	sudo rm -r "/opt/yunohost/$app"
+fi
+if [ -e "/etc/$app/" ]; then
+	echo "Delete radicale config"
+	sudo rm -r "/etc/$app/"
+fi
 
+# Suppression de la configuration uwsgi
 # Stoppe le service uwsgi
 sudo service uwsgi stop
-# Suppression de la configuration uwsgi
-sudo rm -f /etc/uwsgi/apps-enabled/radicale.ini
-sudo rm -f /etc/uwsgi/apps-available/radicale.ini
-# Et du service dans Yunohost
-sudo yunohost service remove uwsgi
+if [ -e "/etc/uwsgi/apps-available/radicale.ini" ]; then
+	echo "Delete uwsgi config"
+	sudo rm "/etc/uwsgi/apps-available/radicale.ini"
+fi
+if [ -e "/etc/uwsgi/apps-enabled/radicale.ini" ]; then
+	echo "Delete uwsgi config"
+	sudo rm "/etc/uwsgi/apps-enabled/radicale.ini"
+fi
+
+if grep -q "^radicale:" /etc/passwd	# Test l'existence de l'utilisateur
+then
+	sudo userdel radicale
+fi
 # Redémarre le service uwsgi
 sudo service uwsgi start
 
 # Suppression de la configuration nginx
-sudo rm -f /etc/nginx/conf.d/$domain.d/$app.conf
-
-if [ "$infcloud" = "1" ]
-then
-	# Suppression de la configuration du pool php-fpm
-	sudo rm -f /etc/php5/fpm/pool.d/$app.conf
-	sudo rm -f /etc/php5/fpm/conf.d/20-$app.ini
-
-	# Recharge la configuration de php5-fpm
-	sudo service php5-fpm reload
+if [ -e "/etc/nginx/conf.d/$domain.d/$app.conf" ]; then	# Delete nginx config
+	echo "Delete nginx config"
+	sudo rm "/etc/nginx/conf.d/$domain.d/$app.conf"
+	sudo service nginx reload
 fi
 
-# Suppression de la configuration de logrotate
-sudo rm /etc/logrotate.d/$app
+# Suppression de la configuration du pool php-fpm
+if [ -e "/etc/php5/fpm/pool.d/$app.conf" ]; then	# Delete fpm config
+	echo "Delete fpm config"
+	sudo rm "/etc/php5/fpm/pool.d/$app.conf"
+fi
+if [ -e "/etc/php5/fpm/conf.d/20-$app.ini" ]; then	# Delete php config
+	echo "Delete php config"
+	sudo rm "/etc/php5/fpm/conf.d/20-$app.ini"
+fi
+sudo service php5-fpm reload
 
-# Recharge la configuration Nginx
-sudo service nginx reload
+# Suppression de la configuration de logrotate
+	if [ -e "/etc/logrotate.d/$app" ]; then
+		echo "Delete logrotate config"
+		sudo rm -r "/etc/logrotate.d/$app"
+	fi
+
+# Retire le hook sur la création de nouveaux utilisateurs
+sudo yunohost hook remove radicale
 
 # Régénère la configuration de SSOwat
 sudo yunohost app ssowatconf
 
-# Supprime l'utilisateur radicale
-sudo userdel radicale
-
-# Retire le hook sur la création de nouveaux utilisateurs
-sudo yunohost hook remove radicale
+echo -e "\e[0m"	# Restore normal color
