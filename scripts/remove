@@ -69,8 +69,11 @@ sudo service php5-fpm reload
 		sudo rm -r "/etc/logrotate.d/$app"
 	fi
 
-# Retire le hook sur la création de nouveaux utilisateurs
-sudo yunohost hook remove radicale
+if [ $ynh_version != "2.4" ]
+then
+	# Retire le hook sur la création de nouveaux utilisateurs
+	sudo yunohost hook remove radicale
+fi
 
 # Régénère la configuration de SSOwat
 sudo yunohost app ssowatconf
