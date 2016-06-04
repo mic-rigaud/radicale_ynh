@@ -128,6 +128,8 @@ sudo cp ../conf/logging /etc/$app/
 sudo cp ../conf/rights /etc/$app/
 sudo sed -i "s@__PATH__@$path@g" /etc/$app/config
 sudo sed -i "s@__FINALPATH__@$final_path@g" /etc/$app/config
+sudo yunohost app setting $app config_file_md5 -v $(md5sum "/etc/$app/config" | cut -d' ' -f1)
+sudo yunohost app setting $app logging_file_md5 -v $(md5sum "/etc/$app/logging" | cut -d' ' -f1)
 if [ "$infcloud" = "1" ]
 then	#Configuration InfCloud
 	# Détermine la langue
@@ -170,6 +172,7 @@ then	#Configuration InfCloud
 	sudo sed -i "s@__LANG__@$language@g" "$final_path/infcloud/config.js"
 	sudo sed -i "s@__ADMIN__@$admin@g" "$final_path/infcloud/config.js"
 	sudo sed -i "s@__TIMEZONE__@$(cat /etc/timezone)@g" "$final_path/infcloud/config.js"
+	sudo yunohost app setting $app config.js_file_md5 -v $(md5sum "$final_path/infcloud/config.js" | cut -d' ' -f1)
 fi
 
 # Set permissions to radicale directory
