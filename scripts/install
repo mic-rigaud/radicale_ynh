@@ -113,10 +113,14 @@ sudo mv "$final_path/regex.py" /opt/yunohost/$app/lib/python*/site-packages/radi
 sudo rm /opt/yunohost/$app/lib/python*/site-packages/radicale/rights/regex.pyc
 if [ "$infcloud" = "1" ]
 then	#Instal InfCloud
+	# Télécharge la source
+	wget -nv --show-progress -i ../sources/source_url -O infcloud.zip
+	# Vérifie la somme de contrôle de la source téléchargée.
+	md5sum -c ../sources/source_md5 --status || (echo "Corrupt source" && false)
 	# Décompresse la source
-	tar -x -f ../sources/infcloud.tar.gz
+	unzip -q infcloud.zip
 	# Copie les fichiers sources
-	sudo cp -a infcloud "$final_path/"
+	sudo cp -a $(cat ../sources/source_dir)/. "$final_path"
 	# Copie les fichiers additionnels ou modifiés.
 	sudo cp -a ../sources/ajouts_infcloud/. "$final_path/infcloud/"
 fi
