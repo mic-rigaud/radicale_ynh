@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# Get app settings
-ynh_version=$(sudo yunohost -v | grep "moulinette:" | cut -d' ' -f2 | cut -d'.' -f1,2)
+source .fonctions	# Charge les fonctions génériques habituellement utilisées dans le script
+
+# Récupère les infos de l'application.
+YNH_VERSION	# Récupère le numéro de version de Yunohost.
 if [ $ynh_version = "2.4" ]; then
 	app=$YNH_APP_INSTANCE_NAME
 else
@@ -14,6 +16,7 @@ infcloud=$(sudo yunohost app setting $app infcloud)
 language=$(sudo yunohost app setting $app language)
 
 
+CHECK_PATH	# Vérifie et corrige la syntaxe du path.
 # Check depends installation
 sudo apt-get install -y python-pip python-virtualenv python-dev libldap2-dev libsasl2-dev libssl-dev uwsgi uwsgi-plugin-python
 
@@ -46,31 +49,18 @@ sudo mv "$final_path/regex.py" /opt/yunohost/$app/lib/python*/site-packages/radi
 sudo rm /opt/yunohost/$app/lib/python*/site-packages/radicale/rights/regex.pyc
 if [ "$infcloud" = "1" ]
 then	#Instal InfCloud
-	# Télécharge la source
-	wget -nv --show-progress -i ../sources/source_url -O infcloud.zip
-	# Vérifie la somme de contrôle de la source téléchargée.
-	md5sum -c ../sources/source_md5 --status || (echo "Corrupt source" && false)
-	# Décompresse la source
-	unzip -q infcloud.zip
-	# Copie les fichiers sources
-	sudo cp -a $(cat ../sources/source_dir)/. "$final_path"
-	# Copie les fichiers additionnels ou modifiés.
-	sudo cp -a ../sources/ajouts/. "$final_path/infcloud/"
+	SETUP_SOURCE "infcloud.zip"	# Télécharge la source, décompresse et copie dans $final_path
 fi
 
 # Radicale configuration
-config_file="/etc/$app/config"
-if [ "$(sudo yunohost app setting $app config_file_md5)" != $(md5sum "$config_file" | cut -d' ' -f1) ]; then
-	sudo cp -a "$config_file" "$config_file.backup.$(date '+%d.%m.%y_%Hh%M,%Ss')"	# Si le fichier de config a été modifié, créer un backup.
-fi
+CHECK_MD5_CONFIG "config" "/etc/$app/config"	# Créé un backup du fichier de config si il a été modifié.
 sudo cp ../conf/config /etc/$app/
-config_file="/etc/$app/logging"
-if [ "$(sudo yunohost app setting $app logging_file_md5)" != $(md5sum "$config_file" | cut -d' ' -f1) ]; then
-	sudo cp -a "$config_file" "$config_file.backup.$(date '+%d.%m.%y_%Hh%M,%Ss')"	# Si le fichier de config a été modifié, créer un backup.
-fi
+CHECK_MD5_CONFIG "logging" "/etc/$app/logging"	# Créé un backup du fichier de config si il a été modifié.
 sudo cp ../conf/logging /etc/$app/
+STORE_MD5_CONFIG "logging" "/etc/$app/logging"	# Réenregistre la somme de contrôle du fichier de config
 sudo sed -i "s@__PATH__@$path@g" /etc/$app/config
 sudo sed -i "s@__FINALPATH__@$path@g" /etc/$app/config
+STORE_MD5_CONFIG "config" "/etc/$app/config"	# Réenregistre la somme de contrôle du fichier de config
 if [ "$infcloud" = "1" ]
 then	#Configuration InfCloud
 	# Détermine la langue
@@ -107,16 +97,14 @@ then	#Configuration InfCloud
 		;;
 	esac
 	sudo yunohost app setting $app language -v $language
-	config_file="$final_path/infcloud/config.js"
-	if [ "$(sudo yunohost app setting $app config.js_file_md5)" != $(md5sum "$config_file" | cut -d' ' -f1) ]; then
-		sudo cp -a "$config_file" "$config_file.backup.$(date '+%d.%m.%y_%Hh%M,%Ss')"	# Si le fichier de config a été modifié, créer un backup.
-	fi
+	CHECK_MD5_CONFIG "config.js" "$final_path/infcloud/config.js"	# Enregistre la somme de contrôle du fichier de config
 	sudo cp ../conf/config.js "$final_path/infcloud/"
 	sudo sed -i "s@__DOMAIN__@$domain@g" "$final_path/infcloud/config.js"
 	sudo sed -i "s@__PATH__@$path@g" "$final_path/infcloud/config.js"
 	sudo sed -i "s@__LANG__@$language@g" "$final_path/infcloud/config.js"
 	sudo sed -i "s@__ADMIN__@$admin@g" "$final_path/infcloud/config.js"
 	sudo sed -i "s@__TIMEZONE__@$(cat /etc/timezone)@g" "$final_path/infcloud/config.js"
+	STORE_MD5_CONFIG "config.js" "$final_path/infcloud/config.js"	# Réenregistre la somme de contrôle du fichier de config
 fi
 
 # Copy uwsgi config
