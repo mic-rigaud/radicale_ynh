@@ -97,7 +97,7 @@ then	#Configuration InfCloud
 		;;
 	esac
 	sudo yunohost app setting $app language -v $language
-	CHECK_MD5_CONFIG "config.js" "$final_path/infcloud/config.js"	# Enregistre la somme de contrôle du fichier de config
+	CHECK_MD5_CONFIG "config.js" "$final_path/infcloud/config.js"	# Créé un backup du fichier de config si il a été modifié.
 	sudo cp ../conf/config.js "$final_path/infcloud/"
 	sudo sed -i "s@__DOMAIN__@$domain@g" "$final_path/infcloud/config.js"
 	sudo sed -i "s@__PATH__@$path@g" "$final_path/infcloud/config.js"
