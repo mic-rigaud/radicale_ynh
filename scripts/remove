@@ -31,7 +31,7 @@ if [ -e "/etc/uwsgi/apps-available/radicale.ini" ]; then
 	echo "Delete uwsgi config"
 	sudo rm "/etc/uwsgi/apps-available/radicale.ini"
 fi
-if [ -e "/etc/uwsgi/apps-enabled/radicale.ini" ]; then
+if [ -h "/etc/uwsgi/apps-enabled/radicale.ini" ]; then
 	echo "Delete uwsgi config"
 	sudo rm "/etc/uwsgi/apps-enabled/radicale.ini"
 fi
