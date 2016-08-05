@@ -30,14 +30,6 @@ then
   sudo mv /usr/local/radicale /opt/yunohost/
 fi
 
-# Set permissions to radicale directory
-sudo grep radicale /etc/passwd  > /dev/null 2>&1
-if [ $? != 0 ];
-then
-  sudo useradd radicale -d /opt/yunohost/$app
-fi
-sudo chown radicale: -R /opt/yunohost/$app
-
 # Upgrade pip packages
 sudo rm -Rf /opt/yunohost/$app
 sudo virtualenv /opt/yunohost/$app
@@ -66,7 +58,7 @@ CHECK_MD5_CONFIG "logging" "/etc/$app/logging"	# Créé un backup du fichier de 
 sudo cp ../conf/logging /etc/$app/
 STORE_MD5_CONFIG "logging" "/etc/$app/logging"	# Réenregistre la somme de contrôle du fichier de config
 sudo sed -i "s@__PATH__@$path@g" /etc/$app/config
-sudo sed -i "s@__FINALPATH__@$path@g" /etc/$app/config
+sudo sed -i "s@__FINALPATH__@$final_path@g" /etc/$app/config
 STORE_MD5_CONFIG "config" "/etc/$app/config"	# Réenregistre la somme de contrôle du fichier de config
 if [ "$infcloud" = "1" ]
 then	#Configuration InfCloud
@@ -137,6 +129,14 @@ if [ "$infcloud" = "1" ]
 then
 	POOL_FPM	# Créer le fichier de configuration du pool php-fpm et le configure.
 fi
+
+# Set permissions to radicale directory
+sudo grep radicale /etc/passwd  > /dev/null 2>&1
+if [ $? != 0 ];
+then
+  sudo useradd radicale -d /opt/yunohost/$app
+fi
+sudo chown radicale: -R /opt/yunohost/$app
 
 # Fix permission
 sudo chmod 755 /etc/$app/
