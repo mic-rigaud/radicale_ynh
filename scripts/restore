@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Récupère les infos de l'application.
-ynh_version=$(sudo yunohost -v | grep "moulinette:" | cut -d' ' -f2 | cut -d'.' -f1,2)
+ynh_version=$(sudo yunohost -v | grep "moulinette:" | cut -d' ' -f2 | cut -d'.' -f1,2)	# Récupère le numéro de version de Yunohost.
 if [ $ynh_version = "2.4" ]; then
 	app=$YNH_APP_INSTANCE_NAME
 else
@@ -24,11 +24,25 @@ sudo cp -a $backup_dir/nginx.conf /etc/nginx/conf.d/$domain.d/$app.conf
 # Restore radicale configuration
 sudo cp -a $backup_dir/etc/. /etc/$app
 
+# Restore virtualenv
+sudo cp -a $backup_dir/virtualenv/. /opt/yunohost/$app
+
+# Set permissions to radicale directory
+if ! grep -q "^radicale:" /etc/passwd	# Test l'existence de l'utilisateur
+then	# Si il n'existe pas, l'user radicale est créé
+	sudo useradd radicale -d /opt/yunohost/$app
+fi
+sudo chown radicale: -R /opt/yunohost/$app
+
+# Restore uwsgi config
+sudo cp -a $backup_dir/uwsgi_conf /etc/uwsgi/apps-available/radicale.ini
+sudo ln -s /etc/uwsgi/apps-available/radicale.ini /etc/uwsgi/apps-enabled/
+
 # Copy dedicated php-fpm process to backup folder
 if [ "$infcloud" = "1" ]
 then
-	sudo cp -a /etc/php5/fpm/pool.d/$app.conf $backup_dir/php-fpm.conf
-	sudo cp -a /etc/php5/fpm/conf.d/20-$app.ini $backup_dir/php-fpm.ini
+	sudo cp -a $backup_dir/php-fpm.conf /etc/php5/fpm/pool.d/$app.conf
+	sudo cp -a $backup_dir/php-fpm.ini /etc/php5/fpm/conf.d/20-$app.ini
 	sudo service php5-fpm reload
 fi
 

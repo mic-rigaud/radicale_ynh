@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# Get app settings
-ynh_version=$(sudo yunohost -v | grep "moulinette:" | cut -d' ' -f2 | cut -d'.' -f1,2)
+source .fonctions	# Charge les fonctions génériques habituellement utilisées dans le script
+
+# Récupère les infos de l'application.
+YNH_VERSION	# Récupère le numéro de version de Yunohost.
 if [ $ynh_version = "2.4" ]; then
 	app=$YNH_APP_INSTANCE_NAME
 else
@@ -12,8 +14,13 @@ path=$(sudo yunohost app setting $app path)
 admin=$(sudo yunohost app setting $app admin)
 infcloud=$(sudo yunohost app setting $app infcloud)
 language=$(sudo yunohost app setting $app language)
+final_path=$(sudo yunohost app setting $app final_path)
 
 
+CHECK_PATH	# Vérifie et corrige la syntaxe du path.
+if [ "$infcloud" = "1" ]; then
+	path=$(echo $path | sed "s@/infcloud@@")	# Retire /infcloud pour traiter le path seul.
+fi
 # Check depends installation
 sudo apt-get install -y python-pip python-virtualenv python-dev libldap2-dev libsasl2-dev libssl-dev uwsgi uwsgi-plugin-python
 
@@ -22,14 +29,6 @@ then
   sudo mkdir -p /opt/yunohost
   sudo mv /usr/local/radicale /opt/yunohost/
 fi
-
-# Set permissions to radicale directory
-sudo grep radicale /etc/passwd  > /dev/null 2>&1
-if [ $? != 0 ];
-then
-  sudo useradd radicale -d /opt/yunohost/$app
-fi
-sudo chown radicale: -R /opt/yunohost/$app
 
 # Upgrade pip packages
 sudo rm -Rf /opt/yunohost/$app
@@ -46,19 +45,21 @@ sudo mv "$final_path/regex.py" /opt/yunohost/$app/lib/python*/site-packages/radi
 sudo rm /opt/yunohost/$app/lib/python*/site-packages/radicale/rights/regex.pyc
 if [ "$infcloud" = "1" ]
 then	#Instal InfCloud
-	# Décompresse la source
-	tar -x -f ../sources/infcloud.tar.gz
-	# Copie les fichiers sources
-	sudo cp -a infcloud "$final_path/"
-	# Copie les fichiers additionnels ou modifiés.
-	sudo cp -a ../sources/ajouts/. "$final_path/infcloud/"
+	final_path_backup=$final_path	# Sauvegarde le contenu de $final_path
+	final_path=$final_path/infcloud	# Change final_path pour l'installation de infcloud
+	SETUP_SOURCE "infcloud.zip"	# Télécharge la source, décompresse et copie dans $final_path
+	final_path=$final_path_backup	# Restaure le contenu de $final_path
 fi
 
 # Radicale configuration
+CHECK_MD5_CONFIG "config" "/etc/$app/config"	# Créé un backup du fichier de config si il a été modifié.
 sudo cp ../conf/config /etc/$app/
+CHECK_MD5_CONFIG "logging" "/etc/$app/logging"	# Créé un backup du fichier de config si il a été modifié.
 sudo cp ../conf/logging /etc/$app/
+STORE_MD5_CONFIG "logging" "/etc/$app/logging"	# Réenregistre la somme de contrôle du fichier de config
 sudo sed -i "s@__PATH__@$path@g" /etc/$app/config
-sudo sed -i "s@__FINALPATH__@$path@g" /etc/$app/config
+sudo sed -i "s@__FINALPATH__@$final_path@g" /etc/$app/config
+STORE_MD5_CONFIG "config" "/etc/$app/config"	# Réenregistre la somme de contrôle du fichier de config
 if [ "$infcloud" = "1" ]
 then	#Configuration InfCloud
 	# Détermine la langue
@@ -95,12 +96,14 @@ then	#Configuration InfCloud
 		;;
 	esac
 	sudo yunohost app setting $app language -v $language
+	CHECK_MD5_CONFIG "config.js" "$final_path/infcloud/config.js"	# Créé un backup du fichier de config si il a été modifié.
 	sudo cp ../conf/config.js "$final_path/infcloud/"
 	sudo sed -i "s@__DOMAIN__@$domain@g" "$final_path/infcloud/config.js"
 	sudo sed -i "s@__PATH__@$path@g" "$final_path/infcloud/config.js"
 	sudo sed -i "s@__LANG__@$language@g" "$final_path/infcloud/config.js"
 	sudo sed -i "s@__ADMIN__@$admin@g" "$final_path/infcloud/config.js"
 	sudo sed -i "s@__TIMEZONE__@$(cat /etc/timezone)@g" "$final_path/infcloud/config.js"
+	STORE_MD5_CONFIG "config.js" "$final_path/infcloud/config.js"	# Réenregistre la somme de contrôle du fichier de config
 fi
 
 # Copy uwsgi config
@@ -108,6 +111,12 @@ sudo cp ../conf/radicale.ini /etc/uwsgi/apps-available/
 
 # Update Nginx configuration file
 sudo sed -i "s@__PATH__@$path@g" ../conf/nginx.conf
+if [ "$path" = "/" ]
+then
+	sudo sed -i "s@__PATH_NO_ROOT__@@g" ../conf/nginx.conf
+else
+	sudo sed -i "s@__PATH_NO_ROOT__@$path@g" ../conf/nginx.conf
+fi
 sudo sed -i "s@__FINALPATH__@$final_path@g" ../conf/nginx.conf
 sudo sed -i "s@__NAMETOCHANGE__@$app@g" ../conf/nginx.conf
 sudo cp ../conf/nginx.conf /etc/nginx/conf.d/$domain.d/$app.conf
@@ -118,17 +127,16 @@ fi
 
 if [ "$infcloud" = "1" ]
 then
-	# Met à jour le fichier de configuration du pool php-fpm.
-	sed -i "s@__NAMETOCHANGE__@$app@g" ../conf/php-fpm.conf
-	sed -i "s@__FINALPATH__@$final_path@g" ../conf/php-fpm.conf
-	finalphpconf=/etc/php5/fpm/pool.d/$app.conf
-	sudo cp ../conf/php-fpm.conf $finalphpconf
-	sudo chown root: $finalphpconf
-	finalphpini=/etc/php5/fpm/conf.d/20-$app.ini
-	sudo cp ../conf/php-fpm.ini $finalphpini
-	sudo chown root: $finalphpini
-	sudo service php5-fpm reload
+	POOL_FPM	# Créer le fichier de configuration du pool php-fpm et le configure.
 fi
+
+# Set permissions to radicale directory
+sudo grep radicale /etc/passwd  > /dev/null 2>&1
+if [ $? != 0 ];
+then
+  sudo useradd radicale -d /opt/yunohost/$app
+fi
+sudo chown radicale: -R /opt/yunohost/$app
 
 # Fix permission
 sudo chmod 755 /etc/$app/
@@ -157,6 +165,9 @@ sudo service nginx reload
 
 # Mise en place des hook pour la création des collections par défaut des nouveaux utilisateurs. Et leur suppression
 sudo sed -i "s@__FINALPATH__@$final_path@g" ../hooks/post_user_create
-sudo yunohost hook add radicale ../hooks/post_user_create
 sudo sed -i "s@__FINALPATH__@$final_path@g" ../hooks/post_user_delete
-sudo yunohost hook add radicale ../hooks/post_user_delete
+if [ $ynh_version != "2.4" ]
+then
+	sudo yunohost hook add radicale ../hooks/post_user_create
+	sudo yunohost hook add radicale ../hooks/post_user_delete
+fi
