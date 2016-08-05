@@ -1,9 +1,7 @@
 #!/bin/bash
 
-source .fonctions	# Charge les fonctions génériques habituellement utilisées dans le script
-
 # Récupère les infos de l'application.
-YNH_VERSION	# Récupère le numéro de version de Yunohost.
+ynh_version=$(sudo yunohost -v | grep "moulinette:" | cut -d' ' -f2 | cut -d'.' -f1,2)	# Récupère le numéro de version de Yunohost.
 if [ $ynh_version = "2.4" ]; then
 	app=$YNH_APP_INSTANCE_NAME
 else
@@ -21,6 +19,12 @@ sudo mkdir -p "$backup_dir"
 
 # Backup sources & data
 sudo cp -a $final_path/. $backup_dir/sources
+
+# Backup virtualenv
+sudo cp -a /opt/yunohost/$app/. $backup_dir/virtualenv
+
+# Backup uwsgi config
+sudo cp -a /etc/uwsgi/apps-available/radicale.ini $backup_dir/uwsgi_conf
 
 # Copy Nginx and YunoHost parameters to make the script "standalone"
 sudo cp -a /etc/yunohost/apps/$app/. $backup_dir/yunohost

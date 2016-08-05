@@ -18,6 +18,9 @@ final_path=$(sudo yunohost app setting $app final_path)
 
 
 CHECK_PATH	# Vérifie et corrige la syntaxe du path.
+if [ "$infcloud" = "1" ]; then
+	path=$(echo $path | sed "s@/infcloud@@")	# Retire /infcloud pour traiter le path seul.
+fi
 # Check depends installation
 sudo apt-get install -y python-pip python-virtualenv python-dev libldap2-dev libsasl2-dev libssl-dev uwsgi uwsgi-plugin-python
 
