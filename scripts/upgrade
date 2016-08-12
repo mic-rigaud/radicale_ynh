@@ -16,6 +16,10 @@ infcloud=$(sudo yunohost app setting $app infcloud)
 language=$(sudo yunohost app setting $app language)
 final_path=$(sudo yunohost app setting $app final_path)
 
+# Modifie le domaine pour qu'il passe dans une regex
+domain_regex=$(echo "$domain" | sed 's@-@.@g')
+CHECK_VAR "$domain_regex" "domain_regex empty"
+
 
 CHECK_PATH	# Vérifie et corrige la syntaxe du path.
 if [ "$infcloud" = "1" ]; then
