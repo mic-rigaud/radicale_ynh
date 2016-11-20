@@ -1,6 +1,8 @@
 Radicale for YunoHost
 ==================
 
+EDIT: Ce repertoire est un fork de [Radical_ynh](https://github.com/YunoHost-Apps/radicale_ynh). Ce fork permet d'installer radical sur un raspberry pi. La seule modification qui a été apporté par rapport au repertoire originelle et la suppression de la ligne demandant une mise a jour du systeme. Cela permet d'eviter d'avoir une erreur sur le service metronome (cf rapport d erreur de metronome sur raspberry pi).
+
 [Yunohost project](https://yunohost.org/#/)
 
 Radicale est un serveur CalDAV (calendrier) et CardDAV (contact) complet.
